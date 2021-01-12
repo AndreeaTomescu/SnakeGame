@@ -1,1 +1,509 @@
-CIAU
+1. TAGS
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class Tags 
+{
+   public static string WALL="Wall";
+   public static string FRUIT= "Fruit";
+   public static string BOMB= "Bomb";
+   public static string TAIL="Tail";
+}
+
+public class Metrics {
+   public static float NODE=0.2f;
+
+
+}
+
+public enum PlayerDirection{
+   LEFT=0,
+   UP=1,
+   RIGHT=2,
+   DOWN=3,
+   COUNT=4
+
+
+}
+
+2. AUDIOMANAGER
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class AudioManager : MonoBehaviour {
+
+	public static AudioManager instance;
+	public AudioClip pickUp_Sound, dead_Sound;
+	
+	void Awake(){
+
+		MakeInstance();
+
+	}
+    
+	void MakeInstance()
+    {
+
+		if(instance==null)
+		{
+			instance=this;
+		}
+	}
+
+	public void Play_PickUpSound()
+  {
+     AudioSource.PlayClipAtPoint(pickUp_Sound, transform.position);
+
+  }
+
+   public void Play_DeadSound()
+  {
+     AudioSource.PlayClipAtPoint(dead_Sound, transform.position);
+
+  }
+
+
+}//class
+
+3. RESTART
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+public class Restart : MonoBehaviour {
+  public void RestartGame(){
+	 
+         SceneManager.LoadScene("SampleScene"); 
+     }
+
+  
+}//class
+
+4. GAMEPLAYCONTROLLER
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class GameplayController : MonoBehaviour {
+
+	public static GameplayController instance;
+	public GameObject fruit_PickUp, bomb_PickUp;
+	private float min_X= -4.25f, max_X=4.25f, min_Y= -2.25f, max_Y=2.26f;
+	private float z_Pos= 5.8f;
+	private Text score_Text;
+	private int scoreCount;
+
+	void Awake(){
+
+		MakeInstance();
+	}
+    void Start(){
+
+		score_Text= GameObject.Find("Score").GetComponent<Text>();
+		Invoke("StartSpawning", 0.5f);
+	}
+
+	
+	void MakeInstance(){
+      
+	  if(instance== null)
+	  {
+
+		  instance=this;
+	  }
+
+
+	}
+
+    void StartSpawning(){
+		StartCoroutine(SpawnPickUps());
+	}
+
+
+   public void CancelSpawning(){
+
+	   CancelInvoke("StartSpawning");
+   }
+	IEnumerator SpawnPickUps(){
+
+       yield return new WaitForSeconds( Random.Range(1f, 1.5f));
+	   if( Random.Range(0,10)>=2)
+	   {
+         Instantiate(fruit_PickUp,
+		              new Vector3(Random.Range(min_X, max_X),Random.Range(min_Y,max_Y),z_Pos), Quaternion.identity);
+
+
+	   } else {
+          
+		  Instantiate(bomb_PickUp,
+		              new Vector3(Random.Range(min_X, max_X),Random.Range(min_Y,max_Y),z_Pos), Quaternion.identity);
+
+	   }
+	   Invoke("StartSpawning", 0f);
+
+
+
+
+
+
+
+	}
+
+	public void IncreaseScore()
+    {
+
+     scoreCount++;
+	 score_Text.text= "Score" + scoreCount;
+
+	}
+
+}//class
+
+
+5. DEACTIVATE PICK UP
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class DeactivatePickUp : MonoBehaviour {
+
+	
+	void Start () {
+		Invoke("Deactivate",Random.Range(3f, 6f));
+	}
+	
+
+	void Deactivate () {
+		gameObject.SetActive(false);
+		
+	}
+}
+
+6. PLAYERCONTROLLER
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+
+public class PlayerController : MonoBehaviour {
+
+	 [HideInInspector] 
+    public PlayerDirection direction;
+    
+    [HideInInspector] 
+     public float step_Length=0.2f;
+    
+    [HideInInspector]
+    public float movement_Frequency=0.1f;
+    private float counter; 
+    private bool move;
+    
+    [SerializeField]  private GameObject tailPrefab;
+	private List<Vector3> delta_Position;
+    
+    private List<Rigidbody> nodes;
+    
+    private Rigidbody main_Body;
+    private Rigidbody head_Body;
+    private Transform tr;
+   
+    private bool create_Node_At_Tail;
+
+    void Awake() 
+    {
+      tr=transform;
+      main_Body= GetComponent<Rigidbody>();
+      InitSnakeNodes();
+      InitPlayer();
+      delta_Position=new List<Vector3>() {
+
+           new Vector3(-step_Length ,0f), //-dx left
+           new Vector3(0f,step_Length),// dy up
+           new Vector3(step_Length ,0f),// dx right
+           new Vector3(0f,-step_Length)// -dy down
+        };
+
+    }
+    
+	void Update()
+    { 
+        CheckMovementFrequency();
+    
+        
+    }
+    
+    void FixedUpdate(){
+
+        if(move){
+            move=false;
+            
+            Move();
+        }
+    }  
+     
+    void InitSnakeNodes()
+    {
+            nodes=new List<Rigidbody>();
+            nodes.Add(tr.GetChild(0).GetComponent<Rigidbody>());
+            nodes.Add(tr.GetChild(1).GetComponent<Rigidbody>());
+            nodes.Add(tr.GetChild(2).GetComponent<Rigidbody>());
+
+            head_Body=nodes[0];
+
+    }
+
+     void SetDirectionRandom(){
+
+        int dirRandom= Random.Range(0, (int)PlayerDirection.COUNT);
+        direction = (PlayerDirection)dirRandom;
+
+
+     }
+	void InitPlayer(){
+
+            SetDirectionRandom();
+
+             switch(direction) {
+                case PlayerDirection.RIGHT:
+                  nodes[1].position=nodes[0].position-new Vector3(Metrics.NODE,0f,0f);
+                  nodes[2].position=nodes[0].position-new Vector3(Metrics.NODE * 2f,0f,0f);
+                  
+                  break;
+
+                case PlayerDirection.LEFT:
+                   nodes[1].position=nodes[0].position+new Vector3(Metrics.NODE,0f,0f);
+                   nodes[2].position=nodes[0].position+new Vector3(Metrics.NODE * 2f,0f,0f);
+                  
+                  break;
+
+                case PlayerDirection.UP:
+                    nodes[1].position=nodes[0].position-new Vector3(0f,Metrics.NODE,0f);
+                    nodes[2].position=nodes[0].position-new Vector3(0f,Metrics.NODE*2f,0f);
+                 
+                  break;
+                case PlayerDirection.DOWN:
+                     nodes[1].position=nodes[0].position+new Vector3(0f,Metrics.NODE,0f);
+                     nodes[2].position=nodes[0].position+new Vector3(0f,Metrics.NODE * 2f,0f);
+
+                  break;
+             }
+
+
+    }
+    void Move()
+    {
+
+            Vector3 dPosition=delta_Position[(int)direction];
+            Vector3 parentPos= head_Body.position;
+            Vector3 prevPosition;
+            main_Body.position=main_Body.position+dPosition;
+            head_Body.position=head_Body.position + dPosition;
+            for( int i=1; i<nodes.Count; i++)
+            {
+
+                prevPosition=nodes[i].position;
+                nodes[i].position=parentPos;
+                parentPos=prevPosition;
+            }
+            //check if we need to create a new node 
+            if(create_Node_At_Tail ){
+
+               create_Node_At_Tail=false;
+				GameObject newNode= Instantiate(tailPrefab,nodes[nodes.Count - 1].position, 
+                                                Quaternion.identity);
+
+                newNode.transform.SetParent(transform,true);
+                nodes.Add(newNode.GetComponent<Rigidbody>());
+            }
+    }
+
+	 void CheckMovementFrequency()
+       {
+            counter+= Time.deltaTime;
+            if(counter >=movement_Frequency){
+
+                counter=0f;
+                move=true;
+            }
+
+
+        }
+
+
+    public void SetInputDirection(PlayerDirection dir)
+    {
+         if(dir== PlayerDirection.UP && direction== PlayerDirection.DOWN ||
+            dir==PlayerDirection.DOWN && direction==PlayerDirection.UP ||
+            dir==PlayerDirection.RIGHT && direction==PlayerDirection.LEFT ||
+            dir== PlayerDirection.LEFT && direction==PlayerDirection.RIGHT){
+
+                      return;
+            }
+
+        direction=dir;
+        ForceMove();
+
+
+
+    }
+
+     void ForceMove(){
+
+       counter=0;
+       move=false;
+       Move();
+
+
+    }
+
+    void OnTriggerEnter(Collider target){
+		
+        if(target.tag==Tags.FRUIT){
+
+            target.gameObject.SetActive(false);
+            create_Node_At_Tail=true;
+			GameplayController.instance.IncreaseScore();
+			AudioManager.instance.Play_PickUpSound();
+        }
+
+
+        if(target.tag==Tags.WALL || target.tag==Tags.BOMB || target.tag==Tags.TAIL)
+		{
+            Time.timeScale= 0f;
+
+			AudioManager.instance.Play_DeadSound();
+		}
+    }
+	
+}// class
+
+
+7. PLAYERINPUT
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class PlayerInput : MonoBehaviour {
+
+	private PlayerController playerController;
+    private int horizontal=0, vertical=0;
+    public enum Axis{
+        Horizontal,
+        Vertical
+    }
+
+    void Awake()
+    {    
+        playerController= GetComponent<PlayerController>();
+
+        
+        
+    }
+
+    void Update()
+    {
+        horizontal=0;
+        vertical=0;
+        GetKeyboardInput();
+        setMovement();
+
+
+    }
+
+    void GetKeyboardInput(){
+
+         horizontal=GetAxisRaw(Axis.Horizontal);
+         vertical=GetAxisRaw(Axis.Vertical);
+
+
+         if(horizontal!=0)
+         {
+             vertical=0;
+         }
+
+    }
+
+	void setMovement(){
+
+        if (vertical!=0){
+
+            playerController.SetInputDirection((vertical==1) ?
+                                                PlayerDirection.UP : PlayerDirection.DOWN);
+                             
+        }
+        else if(horizontal!=0){
+
+            playerController.SetInputDirection((horizontal==1) ?
+                                                PlayerDirection.RIGHT: PlayerDirection.LEFT);
+
+        }
+    
+    }
+
+
+    int GetAxisRaw(Axis axis){
+
+       if(axis==Axis.Horizontal)
+       {
+
+           bool left=Input.GetKeyDown(KeyCode.LeftArrow);
+           bool right=Input.GetKeyDown(KeyCode.RightArrow);
+          
+           if(left){
+             return -1;
+           }
+
+           if(right){
+               return 1;
+           }
+           return 0;
+
+       }else if(axis==Axis.Vertical){
+           bool up=Input.GetKeyDown(KeyCode.UpArrow);
+           bool down=Input.GetKeyDown(KeyCode.DownArrow);
+            
+            if(up){
+                return 1;
+            }
+
+            if(down){
+                return -1;
+            }
+
+          return 0;
+       }
+
+       return 0;
+
+    }
+	
+
+}// class
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
